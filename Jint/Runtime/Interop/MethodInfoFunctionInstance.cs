@@ -87,7 +87,8 @@ namespace Jint.Runtime.Interop
                 return JsValue.FromObject(Engine, method.Invoke(thisObject.ToObject(), parameters.ToArray()));
             }
 
-            throw new JavaScriptException(Engine.TypeError, "No public methods with the specified arguments were found.");
+            throw new JavaScriptException(Engine.TypeError, "No public methods with the specified arguments were found. "+methodInfos[0].DeclaringType.Name +" "+ methodInfos[0].Name)
+            ;
         }
 
         /// <summary>

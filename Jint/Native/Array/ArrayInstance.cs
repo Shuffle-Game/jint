@@ -1,8 +1,13 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Threading;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop;
 
 namespace Jint.Native.Array
 {
@@ -11,6 +16,7 @@ namespace Jint.Native.Array
         private readonly Engine _engine;
         private IDictionary<uint, PropertyDescriptor> _array = new MruPropertyCache2<uint, PropertyDescriptor>();
         private PropertyDescriptor _length;
+        public IList InternalArray;
 
         public ArrayInstance(Engine engine) : base(engine)
         {
@@ -39,6 +45,55 @@ namespace Jint.Native.Array
 
                 return;
             }
+            if (InternalArray != null)
+            {
+                int ind;
+                if (int.TryParse(propertyName, out ind))
+                {
+                    object val;
+                    switch (value.Type)
+                    {
+                        case Types.Undefined:
+                            val = null;
+                            break;
+                        case Types.Null:
+                            val = null;
+                            break;
+                        case Types.Boolean:
+                            val = value.AsBoolean();
+                            break;
+                        case Types.String:
+                            val = value.AsString();
+                            break;
+                        case Types.Number:
+                            val = value.AsNumber();
+                            break;
+                        case Types.Object:
+                            val = value;
+                            var ow = ((JsValue)val).AsObject() as ObjectWrapper;
+                            if (ow != null)
+                            {
+                                val = ow.Target;
+                            }
+                            break;
+                        default:
+                            throw new ArgumentOutOfRangeException();
+                    }
+                    if (ind >= InternalArray.Count)
+                    {
+                        for (int i = InternalArray.Count; i <= ind; i++)
+                        {
+                            if (val != null)
+                                InternalArray.Add(GetDefault(val.GetType()));
+                            else
+                                InternalArray.Add(null);
+                        }
+                    }
+
+                    InternalArray[ind] = val;
+                }
+            }
+
 
             var ownDesc = GetOwnProperty(propertyName);
 
@@ -63,7 +118,14 @@ namespace Jint.Native.Array
                 DefineOwnProperty(propertyName, newDesc, throwOnError);
             }
         }
-
+        public static object GetDefault(Type type)
+        {
+            if (type.IsValueType)
+            {
+                return Activator.CreateInstance(type);
+            }
+            return null;
+        }
         public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
         {
             var oldLenDesc = GetOwnProperty("length");

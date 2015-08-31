@@ -381,6 +381,20 @@ namespace Jint.Native
 
                 return jsArray;
             }
+            
+            if (value.GetType().IsGenericType && value.GetType().GetGenericTypeDefinition() == typeof(List<>))
+            {
+                JsValue[] jsvals = new JsValue[((IList) value).Count];
+
+                for (int index = 0; index < ((IList) value).Count; index++)
+                {
+                    var jsItem = FromObject(engine, ((IList)value)[index]);
+                    jsvals[index] = jsItem;
+                }
+
+                var jsArray = engine.Array.Construct((IList)value, jsvals);
+                return jsArray;
+            }
 
             var regex = value as System.Text.RegularExpressions.Regex;
             if (regex != null)

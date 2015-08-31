@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+﻿using System;
 using Jint.Native.Object;
 using Jint.Parser;
 using Jint.Runtime;
@@ -103,6 +104,10 @@ namespace Jint.Native.Function
                     {
                         return result.GetValueOrDefault();
                     }
+                }
+                catch (Exception ex)
+                {
+                    
                 }
                 finally
                 {

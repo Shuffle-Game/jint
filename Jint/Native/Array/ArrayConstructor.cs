@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Generic;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -8,6 +9,7 @@ namespace Jint.Native.Array
 {
     public sealed class ArrayConstructor : FunctionInstance, IConstructor
     {
+
         private ArrayConstructor(Engine engine) :  base(engine, null, null, false)
         {
         }
@@ -66,10 +68,52 @@ namespace Jint.Native.Array
                 {
                     throw new JavaScriptException(Engine.RangeError, "Invalid array length");
                 }
-                
+
                 instance.FastAddProperty("length", length, true, false, false);
             }
-            else if (arguments.Length == 1 && arguments.At(0).IsObject() && arguments.At(0).As<ObjectWrapper>() != null )
+            else if (arguments.Length == 1 && arguments.At(0).IsObject() && arguments.At(0).As<ObjectWrapper>() != null)
+            {
+                var enumerable = arguments.At(0).As<ObjectWrapper>().Target as IEnumerable;
+
+                if (enumerable != null)
+                {
+                    var jsArray = Engine.Array.Construct(Arguments.Empty);
+                    foreach (var item in enumerable)
+                    {
+                        var jsItem = JsValue.FromObject(Engine, item);
+                        Engine.Array.PrototypeObject.Push(jsArray, Arguments.From(jsItem));
+                    }
+
+                    return jsArray;
+                }
+            }
+            else
+            {
+                instance.FastAddProperty("length", 0, true, false, false);
+                PrototypeObject.Push(instance, arguments);
+            }
+
+            return instance;
+        }
+        public ObjectInstance Construct(IList internalArray, JsValue[] arguments)
+        {
+
+            var instance = new ArrayInstance(Engine);
+            instance.InternalArray = internalArray;
+            instance.Prototype = PrototypeObject;
+            instance.Extensible = true;
+
+            if (arguments.Length == 1 && arguments.At(0).IsNumber())
+            {
+                var length = TypeConverter.ToUint32(arguments.At(0));
+                if (!TypeConverter.ToNumber(arguments[0]).Equals(length))
+                {
+                    throw new JavaScriptException(Engine.RangeError, "Invalid array length");
+                }
+
+                instance.FastAddProperty("length", length, true, false, false);
+            }
+            else if (arguments.Length == 1 && arguments.At(0).IsObject() && arguments.At(0).As<ObjectWrapper>() != null)
             {
                 var enumerable = arguments.At(0).As<ObjectWrapper>().Target as IEnumerable;
 

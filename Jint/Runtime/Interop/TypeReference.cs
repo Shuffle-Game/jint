@@ -83,7 +83,7 @@ namespace Jint.Runtime.Interop
                 }
             }
 
-            throw new JavaScriptException(Engine.TypeError, "No public methods with the specified arguments were found.");
+            throw new JavaScriptException(Engine.TypeError, "No public methods with the specified arguments were found. " + Type.Name + " Constructor");
             
         }
 

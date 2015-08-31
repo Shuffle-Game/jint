@@ -1,9 +1,11 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Linq.Expressions;
 using Jint.Native;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.Reflection;
 
 namespace Jint.Runtime.Interop
@@ -14,7 +16,7 @@ namespace Jint.Runtime.Interop
         private static readonly Dictionary<string, bool> _knownConversions = new Dictionary<string, bool>();
         private static readonly object _lockObject = new object();
 
-        private static MethodInfo convertChangeType = typeof(System.Convert).GetMethod("ChangeType", new Type[] { typeof(object), typeof(Type), typeof(IFormatProvider) } );
+        private static MethodInfo convertChangeType = typeof(System.Convert).GetMethod("ChangeType", new Type[] { typeof(object), typeof(Type), typeof(IFormatProvider) });
         private static MethodInfo jsValueFromObject = typeof(JsValue).GetMethod("FromObject");
         private static MethodInfo jsValueToObject = typeof(JsValue).GetMethod("ToObject");
 
@@ -39,6 +41,30 @@ namespace Jint.Runtime.Interop
             if (type.IsInstanceOfType(value))
             {
                 return value;
+            }
+
+            var expando = value as ExpandoObject;
+            if (expando != null)
+            {
+                var inst = Activator.CreateInstance(type);
+                foreach (var kv in expando)
+                {
+                    var property = type.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public).Where(p => ObjectWrapper.EqualsIgnoreCasing(p.Name, kv.Key)).FirstOrDefault();
+                    if (property != null)
+                    {
+                        property.SetValue(inst,kv.Value,null);
+                    }
+                    else
+                    {
+                        var field = type.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public).Where(f => ObjectWrapper.EqualsIgnoreCasing(f.Name, kv.Key)).FirstOrDefault();
+                        if (field != null)
+                        {
+                            field.SetValue(inst, kv.Value);
+                        }
+                    }
+
+                }
+                return inst;
             }
 
             if (type.IsEnum)
@@ -94,9 +120,10 @@ namespace Jint.Runtime.Interop
                             @params[i] = Expression.Parameter(genericArguments[i], genericArguments[i].Name + i);
                         }
 
-                        var @vars = 
-                            Expression.NewArrayInit(typeof(JsValue), 
-                                @params.Select(p => {
+                        var @vars =
+                            Expression.NewArrayInit(typeof(JsValue),
+                                @params.Select(p =>
+                                {
                                     var boxingExpression = Expression.Convert(p, typeof(object));
                                     return Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, typeof(Engine)), boxingExpression);
                                 })
@@ -116,7 +143,7 @@ namespace Jint.Runtime.Interop
                                                             jsValueToObject),
                                                         Expression.Constant(returnType, typeof(Type)),
                                                         Expression.Constant(System.Globalization.CultureInfo.InvariantCulture, typeof(IFormatProvider))
-                                                        ),                            
+                                                        ),
                                                     returnType);
 
                         return Expression.Lambda(callExpresion, new ReadOnlyCollection<ParameterExpression>(@params));
