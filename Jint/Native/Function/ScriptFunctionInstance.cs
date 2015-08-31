@@ -105,10 +105,6 @@ namespace Jint.Native.Function
                         return result.GetValueOrDefault();
                     }
                 }
-                catch (Exception ex)
-                {
-                    
-                }
                 finally
                 {
                     Engine.LeaveExecutionContext();
