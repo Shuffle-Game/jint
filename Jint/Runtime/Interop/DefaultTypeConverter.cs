@@ -10,6 +10,61 @@ using System.Reflection;
 
 namespace Jint.Runtime.Interop
 {
+    public class JsList<T> : List<T>
+    {
+        public JsList()
+        {
+        }
+
+        public void ForEach(Action<T, int> call)
+        {
+            for (int i = 0; i < this.Count; i++)
+            {
+                call(this[i], i);
+            }
+        }
+        public JsList<T> Where(Func<T, bool> call)
+        {
+            JsList<T> items = new JsList<T>();
+
+            foreach (var v in this)
+            {
+                if (call(v))
+                {
+                    items.Add(v);
+                }
+            }
+            return items;
+        }
+
+        public bool Any(Func<T, bool> call)
+        {
+            JsList<T> items = new JsList<T>();
+
+            foreach (var v in this)
+            {
+                if (call(v))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public void Splice(int index, int length)
+        {
+            for (int i = index + length - 1; i >= index; i--)
+            {
+                this.RemoveAt(i);
+            }
+        }
+        public void Push(T item)
+        {
+            this.Add(item);
+        }
+        public int Length { get { return this.Count; } }
+    }
+
     public class DefaultTypeConverter : ITypeConverter
     {
         private readonly Engine _engine;
@@ -199,8 +254,30 @@ namespace Jint.Runtime.Interop
                 return result;
             }
 
-            return System.Convert.ChangeType(value, type, formatProvider);
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(JsList<>))
+            {
+                var items = (object[]) value;
+                var finalType = type.GetGenericArguments()[0];
+                var objArr = items;
+                var arr = Array.CreateInstance(finalType, objArr.Length);
+                Array.Copy(objArr, arr, objArr.Length);
+
+                var cc = Activator.CreateInstance(type);
+                cc.GetType().GetMethod("AddRange").Invoke(cc, new[] {arr});
+                return cc;
+            }
+
+            try
+            {
+                return System.Convert.ChangeType(value, type, formatProvider);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Cannot convert type " + value.GetType().FullName + " to type " + type.FullName);
+            }
+
         }
+
 
         public virtual bool TryConvert(object value, Type type, IFormatProvider formatProvider, out object converted)
         {
